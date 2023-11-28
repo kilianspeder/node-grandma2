@@ -1,0 +1,24 @@
+{
+  "name": "grandma2",
+  "version": "1.0.0",
+  "description": "a module to interact with the grandMA2 Remotes websocket API",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/klnspdr/node-grandma2.git"
+  },
+  "keywords": [
+    "grandma2",
+    "websocket",
+    "remote"
+  ],
+  "author": "klnspdr",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/klnspdr/node-grandma2/issues"
+  },
+  "homepage": "https://github.com/klnspdr/node-grandma2#readme"
+}
