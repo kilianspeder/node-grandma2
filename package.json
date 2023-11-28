@@ -20,5 +20,9 @@
   "bugs": {
     "url": "https://github.com/klnspdr/node-grandma2/issues"
   },
-  "homepage": "https://github.com/klnspdr/node-grandma2#readme"
+  "homepage": "https://github.com/klnspdr/node-grandma2#readme",
+  "dependencies": {
+    "md5": "^2.3.0",
+    "websocket": "^1.0.34"
+  }
 }
