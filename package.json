@@ -1,8 +1,9 @@
 {
   "name": "grandma2",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "a module to interact with the grandMA2 Remotes websocket API",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
