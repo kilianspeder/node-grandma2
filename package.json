@@ -1,6 +1,6 @@
 {
   "name": "grandma2",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "a module to interact with the grandMA2 Remotes websocket API",
   "main": "index.js",
   "type": "module",
