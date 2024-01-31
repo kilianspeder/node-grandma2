@@ -307,7 +307,7 @@ export class GrandMA2 {
          */
         const execType = (executorNumber <= 100 ? "faderPage" : "buttonPage")
 
-        this.client.send('{"requestType":"playbacks_userInput","cmdline":"","execIndex":' + (executor - 1) + ',"pageIndex":' + this.states.pages[execType] + ',"faderValue":' + value + ',"type":1,"session":' + this.states.session + ',"maxRequests":0}'.toString());
+        this.client.send('{"requestType":"playbacks_userInput","cmdline":"","execIndex":' + (executorNumber - 1) + ',"pageIndex":' + this.states.pages[execType] + ',"faderValue":' + value + ',"type":1,"session":' + this.states.session + ',"maxRequests":0}'.toString());
 
     }
 
