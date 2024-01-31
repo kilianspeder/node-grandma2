@@ -1,4 +1,4 @@
-import websocket from 'websocket';
+import Websocket from 'ws';
 import md5 from 'md5'
 import {EventEmitter} from 'events';
 import {handleExecutorFaders} from "./handleExecutorFaders.js";
@@ -8,12 +8,14 @@ export class GrandMA2 {
 
     onExecutorFaderChanged = (executorFader) => {
     }
+    onExecutorButtonsChanged = (executorButtons) => {
+    }
     config = {
         username: "",
         password: "",
-        numberExecutorsFader: 5,
+        numberExecutorFader: 5,
         startExecutorFader: 1,
-        numberExecutorsButton: 5,
+        numberExecutorButtons: 5,
         startExecutorButton: 101,
         intervalId: null
     }
@@ -21,7 +23,7 @@ export class GrandMA2 {
     states = {
         pages: {
             faderPage: 0,
-            buttonButton: 0
+            buttonPage: 0
         },
         request: 0,
         session: 0,
@@ -31,12 +33,18 @@ export class GrandMA2 {
         subscribedRequestTypes: []
     }
 
-    constructor(ip, username, password, subscribedRequestTypes) {
-        this.client = new websocket.w3cwebsocket(`ws://${ip}:80/`);
+    constructor(ip, username, password, subscribedRequestTypes, numberExecutorFader, startExecutorFader, numberExecutorButtons, startExecutorButton) {
+        //this.client = new websocket.w3cwebsocket(`ws://${ip}:80/`);
+        this.client = new Websocket(`ws://${ip}:80/`);
         this.eventEmitter = new EventEmitter();
         this.config.username = username;
         this.config.password = md5(password);
         this.states.subscribedRequestTypes = subscribedRequestTypes;
+
+        this.config.numberExecutorFader = numberExecutorFader;
+        this.config.numberExecutorButtons = numberExecutorButtons;
+        this.config.startExecutorButton = startExecutorButton;
+        this.config.startExecutorFader = startExecutorFader;
 
         this.client.onmessage = (e) => {
 
@@ -61,7 +69,11 @@ export class GrandMA2 {
         }
 
         this.eventEmitter.on("executorFaderChanged", (e, ...args) => {
-            this.onExecutorFaderChanged(args)
+            this.onExecutorFaderChanged(e)
+        })
+
+        this.eventEmitter.on("executorButtonsChanged", (e, ...args) => {
+            this.onExecutorButtonsChanged(e)
         })
     }
 
@@ -89,110 +101,117 @@ export class GrandMA2 {
         }
 
         //filter messages by type
+        try {
 
-        if (typeof e.data === 'string') {
-            //console.log("Received: '" + e.data + "'");
-            //console.log(e.data);
 
-            let obj = JSON.parse(e.data);
-            //console.log(obj);
+            if (typeof e.data === 'string') {
+                //console.log("Received: '" + e.data + "'");
+                //console.log(e.data);
 
-            if (obj.status === "server ready") {
-                //respond to server_ready and request websocket session id
-                console.log("SERVER READY");
-                this.client.send('{"session":0}'.toString())
-            }
-            if (obj.forceLogin === true) {
-                //when login is required, get config options, hash password and send login request
-                console.log("LOGIN ...");
-                this.states.session = (obj.session);
-                this.client.send(JSON.stringify({
-                    "requestType": "login",
-                    "username": this.config.username,
-                    "password": this.config.password,
-                    "session": this.states.session,
-                    "maxRequests": 10
-                }))
-            }
+                let obj = JSON.parse(e.data);
+                //console.log(obj);
 
-            if (obj.session) {
-                //if obj.session is set,
-                if (obj.session === 0) {
-                    console.log("GrandMA2 CONNECTION ERROR");
-                    this.client.send('{"session":' + session + '}'.toString());
-                } else if (obj.session === -1) {
-                    console.log("Please turn on Web Remote, and set Web Remote password to \"remote\"");
-                    //send sessionClosed event to clear and close midi and exit process
-                    //this.#emitEvent('sessionClosed', "")
-                } else {
-                    //save session ID
+                if (obj.status === "server ready") {
+                    //respond to server_ready and request websocket session id
+                    console.log("SERVER READY");
+                    this.client.send('{"session":0}'.toString())
+                }
+                if (obj.forceLogin === true) {
+                    //when login is required, get config options, hash password and send login request
+                    console.log("LOGIN ...");
                     this.states.session = (obj.session);
+                    this.client.send(JSON.stringify({
+                        "requestType": "login",
+                        "username": this.config.username,
+                        "password": this.config.password,
+                        "session": this.states.session,
+                        "maxRequests": 10
+                    }))
                 }
-            }
 
-            if (obj.text) {
-                //if obj.text is set, log text
-                console.log(`GrandMA2 incoming text: ${obj.text}`)
-            }
-
-            if (obj.responseType === "login" && obj.result === true) {
-                //if login was successful
-                if (this.states.interval_on === 0) {
-                    this.states.interval_on = 1;
-                    this.config.intervalId = setInterval(this.#interval, 100);//80
-                }
-                console.log("GrandMA2: ...LOGGED");
-                console.log("GrandMA2: SESSION: " + this.states.session);
-            }
-
-            if (obj.responseType === "login" && obj.result === false) {
-                //if login failed
-                setInterval(this.#interval, 100);//80
-                console.log("...LOGIN ERROR");
-                console.log("SESSION " + this.states.session);
-            }
-
-            if (obj.responseType === "presetTypeList") {
-                //console.log("Preset Type List");
-            }
-
-            if (obj.responseType === "presetTypes") {
-                //console.log("Preset Types");
-            }
-
-            if (obj.responseType === "getdata") {
-                //console.log("Get Data");
-            }
-
-
-            if (obj.responseType === "playbacks") {
-                //when receiving playbacks/executor data
-                if (obj.responseSubType === 2) {//Fader
-
-                    const executorFader = handleExecutorFaders(obj)
-
-                    if (JSON.stringify(executorFader) !== JSON.stringify(this.states.prevExecutorFader)) {
-                        this.states.prevExecutorFader = executorFader;
-                        this.emitEvent("executorFaderChanged", executorFader);
+                if (obj.session) {
+                    //if obj.session is set,
+                    if (obj.session === 0) {
+                        console.log("GrandMA2 CONNECTION ERROR");
+                        this.client.send('{"session":' + session + '}'.toString());
+                    } else if (obj.session === -1) {
+                        console.log("Please turn on Web Remote, and set Web Remote password to \"remote\"");
+                        //send sessionClosed event to clear and close midi and exit process
+                        //this.#emitEvent('sessionClosed', "")
+                    } else {
+                        //save session ID
+                        this.states.session = (obj.session);
                     }
                 }
 
-                if (obj.responseSubType === 3) {//Buttons
+                if (obj.text) {
+                    //if obj.text is set, log text
+                    console.log(`GrandMA2 incoming text: ${obj.text}`)
+                }
 
-                    const executorButtons = handleExecutorButtons(obj)
+                if (obj.responseType === "login" && obj.result === true) {
+                    //if login was successful
+                    if (this.states.interval_on === 0) {
+                        this.states.interval_on = 1;
+                        this.config.intervalId = setInterval(this.#interval, 100);//80
+                    }
+                    console.log("GrandMA2: ...LOGGED");
+                    console.log("GrandMA2: SESSION: " + this.states.session);
+                }
 
-                    if (JSON.stringify(executorButtons) !== JSON.stringify(this.states.prevExecutorButtons)) {
-                        this.states.prevExecutorButtons = executorButtons;
-                        this.emitEvent("executorButtonsChanged", executorButtons);
+                if (obj.responseType === "login" && obj.result === false) {
+                    //if login failed
+                    setInterval(this.#interval, 100);//80
+                    console.log("...LOGIN ERROR");
+                    console.log("SESSION " + this.states.session);
+                }
+
+                if (obj.responseType === "presetTypeList") {
+                    //console.log("Preset Type List");
+                }
+
+                if (obj.responseType === "presetTypes") {
+                    //console.log("Preset Types");
+                }
+
+                if (obj.responseType === "getdata") {
+                    //console.log("Get Data");
+                }
+
+
+                if (obj.responseType === "playbacks") {
+                    //when receiving playbacks/executor data
+                    if (obj.responseSubType === 2) {//Fader
+
+                        const executorFader = handleExecutorFaders(obj)
+
+                        if (JSON.stringify(executorFader) !== JSON.stringify(this.states.prevExecutorFader)) {
+                            this.states.prevExecutorFader = executorFader;
+                            this.emitEvent("executorFaderChanged", executorFader);
+                        }
                     }
 
+                    if (obj.responseSubType === 3) {//Buttons
+
+                        const executorButtons = handleExecutorButtons(obj)
+
+                        if (JSON.stringify(executorButtons) !== JSON.stringify(this.states.prevExecutorButtons)) {
+                            this.states.prevExecutorButtons = executorButtons;
+                            this.emitEvent("executorButtonsChanged", executorButtons);
+                        }
+
+                    }
                 }
             }
+        } catch (e) {
+            //console.log("error caught:")
+            this.client.close()
+            throw(e);
         }
     }
 
     emitEvent(event, ...args) {
-        console.log("emit event: " + event)
+        //console.log("emit event: " + event)
         this.eventEmitter.emit(event, args)
     }
 
@@ -210,16 +229,19 @@ export class GrandMA2 {
             "session":this.states.session,
             "maxRequests":1
         }));*/
+
         this.states.subscribedRequestTypes.map((reqType) => {
             switch (reqType) {
                 case "fader":
-                    this.client.send('{"requestType":"playbacks","startIndex":[0],"itemsCount":[5],"pageIndex":' + this.states.pages.fader + ',"itemsType":[2],"view":2,"execButtonViewMode":1,"buttonsViewMode":0,"session":' + this.states.session + ',"maxRequests":1}')
+                    this.client.send('{"requestType":"playbacks","startIndex":[' + this.config.startExecutorFader + '],"itemsCount":[' + this.config.numberExecutorFader + '],"pageIndex":' + this.states.pages.faderPage + ',"itemsType":[2],"view":2,"execButtonViewMode":1,"buttonsViewMode":0,"session":' + this.states.session + ',"maxRequests":1}')
                     break;
                 case "button":
-                    this.client.send('{"requestType":"playbacks","startIndex":[100],"itemsCount":[5],"pageIndex":' + this.states.pages.button + ',"itemsType":[3],"view":3,"execButtonViewMode":2,"buttonsViewMode":0,"session":' + this.states.session + ',"maxRequests":1}')
+                    this.client.send('{"requestType":"playbacks","startIndex":[' + this.config.startExecutorButton + '],"itemsCount":[' + this.config.numberExecutorButtons + '],"pageIndex":' + this.states.pages.buttonPage + ',"itemsType":[3],"view":3,"execButtonViewMode":2,"buttonsViewMode":0,"session":' + this.states.session + ',"maxRequests":1}')
                     break;
             }
         })
+
+
     }
 
     increasePage(type) {
@@ -258,11 +280,36 @@ export class GrandMA2 {
         }
     }
 
+    sendCommand(command) {
+            this.client.send(JSON.stringify({
+                "requestType": "command",
+                "command": `${command}`,
+                "session": this.states.session,
+                "maxRequests": 0
+            }))
+    }
+
+    setExecButtonState(executorNumber, buttonId, state){
+        /*
+            executorNumber: Integer; executor number (not 0 indexed)
+            buttonId: Integer (0,1,2); passed with executor object in ExecutorBlocks
+            state: Boolean
+         */
+        const execType = (executorNumber <= 100 ? "faderPage" : "buttonPage")
+        this.client.send('{"requestType":"playbacks_userInput","cmdline":"","execIndex":' + (executorNumber - 1) + ',"pageIndex":' + this.states.pages[execType] + ',"buttonId":' + buttonId + ',"pressed":' + state +',"released":' + !state + ',"type":0,"session":' + this.states.session + ',"maxRequests":0}'.toString())
+    }
+
+    setExecFaderValue(executorNumber, value){
+        /*
+            executorNumber: Integer; executor number (not 0 indexed)
+            buttonId: Integer (0,1,2); passed with executor object in ExecutorBlocks
+            value: Integer between 0 and 1
+         */
+        const execType = (executorNumber <= 100 ? "faderPage" : "buttonPage")
+
+        this.client.send('{"requestType":"playbacks_userInput","cmdline":"","execIndex":' + (executor - 1) + ',"pageIndex":' + this.states.pages[execType] + ',"faderValue":' + value + ',"type":1,"session":' + this.states.session + ',"maxRequests":0}'.toString());
+
+    }
+
 }
 
-/*
-
-fader: {"requestType":"playbacks","startIndex":[0],"itemsCount":[5],"pageIndex":0,"itemsType":[2],"view":2,"execButtonViewMode":1,"buttonsViewMode":0,"session":35,"maxRequests":1}
-buttons: {"requestType":"playbacks","startIndex":[100],"itemsCount":[35],"pageIndex":0,"itemsType":[3],"view":3,"execButtonViewMode":2,"buttonsViewMode":0,"session":35,"maxRequests":1}
-
- */

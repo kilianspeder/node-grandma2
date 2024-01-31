@@ -24,6 +24,6 @@
   "homepage": "https://github.com/klnspdr/node-grandma2#readme",
   "dependencies": {
     "md5": "^2.3.0",
-    "websocket": "^1.0.34"
+    "ws": "^8.16.0"
   }
 }
